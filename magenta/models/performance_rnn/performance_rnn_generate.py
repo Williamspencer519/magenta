@@ -77,20 +77,16 @@ tf.app.flags.DEFINE_string(
     'primer_midi', '',
     'The path to a MIDI file containing a polyphonic track that will be used '
     'as a priming track.')
-tf.app.flags.DEFINE_string(
+tf.app.flags.DEFINE_float(
     'notes_per_second', None,
-    'When conditioning on note density, a string representation of the desired '
-    'density in notes per second. This can also be a string representation of '
-    'a Python list of densities, in which case each output performance will be '
-    'divided into equally-sized segments of constant note density, one per '
-    'specified density. If not conditioning, this value will be ignored.')
+    'When conditioning on note density, the desired density in notes per '
+    'second. If not conditioning, this value will be ignored.')
 tf.app.flags.DEFINE_string(
     'pitch_class_histogram', None,
     'When conditioning on pitch class histogram, a string representation of '
     'the desired pitch class histogram as a Python list. For example: '
     '"[2, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1]". The values will be normalized to '
-    'sum to one. Similar to `notes_per_second`, this can also be a list of '
-    'pitch class histograms.')
+    'sum to one.')
 tf.app.flags.DEFINE_float(
     'temperature', 1.0,
     'The randomness of the generated tracks. 1.0 uses the unaltered '
@@ -160,9 +156,7 @@ def run_with_flags(generator):
   if FLAGS.primer_midi:
     primer_midi = os.path.expanduser(FLAGS.primer_midi)
 
-  if not tf.gfile.Exists(output_dir):
-    tf.gfile.MakeDirs(output_dir)
-
+ 
   primer_sequence = None
   if FLAGS.primer_pitches:
     primer_sequence = music_pb2.NoteSequence()
@@ -221,9 +215,9 @@ def run_with_flags(generator):
         'histogram will be ignored: %s', FLAGS.pitch_class_histogram)
 
   if FLAGS.notes_per_second is not None:
-    generator_options.args['note_density'].string_value = FLAGS.notes_per_second
+    generator_options.args['note_density'].float_value = FLAGS.notes_per_second
   if FLAGS.pitch_class_histogram is not None:
-    generator_options.args['pitch_histogram'].string_value = (
+    generator_options.args['pitch_histogram'].byte_value = (
         FLAGS.pitch_class_histogram)
 
   generator_options.args['temperature'].float_value = FLAGS.temperature
@@ -241,11 +235,14 @@ def run_with_flags(generator):
   digits = len(str(FLAGS.num_outputs))
   for i in range(FLAGS.num_outputs):
     generated_sequence = generator.generate(primer_sequence, generator_options)
-
+    
     midi_filename = os.path.split(output_dir)[1]
-    output_dir=os.path.split(output_dir)[0]
-    midi_path = os.path.join(output_dir, midi_filename)
+    
+    midi_path = output_dir
+    print midi_path
+    print output_dir
     magenta.music.sequence_proto_to_midi_file(generated_sequence, midi_path)
+
   tf.logging.info('Wrote %d MIDI files to %s',
                   FLAGS.num_outputs, output_dir)
 
